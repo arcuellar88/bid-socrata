@@ -8,3 +8,15 @@ dependency-reduced-pom.xml
 buildNumber.properties
 .mvn/timing.properties
 *.properties
+.classpath
+.idea
+.metadata
+.settings
+.project
+*.class
+*.iml
+*.swp
+*.jar
+*.log
+.cache
+*.csv
