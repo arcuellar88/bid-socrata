@@ -8,6 +8,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
@@ -18,6 +20,7 @@ import com.google.common.net.MediaType;
 import com.socrata.api.HttpLowLevel;
 import com.socrata.api.Soda2Consumer;
 import com.socrata.api.SodaDdl;
+import com.socrata.builders.SoqlQueryBuilder;
 import com.socrata.exceptions.LongRunningQueryException;
 import com.socrata.exceptions.SodaError;
 import com.socrata.model.importer.Column;
@@ -26,6 +29,7 @@ import com.socrata.model.importer.DatasetInfo;
 import com.socrata.model.importer.Metadata;
 import com.socrata.model.soql.SoqlQuery;
 import com.sun.jersey.api.client.ClientResponse;
+import com.sun.jersey.api.client.GenericType;
 
 public class CatalogApi {
 
@@ -34,8 +38,6 @@ public class CatalogApi {
 	private final static String PWD="password";
 	private final static String TOKEN="token";
 	
-	
-
 	private Soda2Consumer consumer;
 	
 	
@@ -71,7 +73,8 @@ public class CatalogApi {
 		try {
 
 			PrintWriter pw=new PrintWriter("./data/dataset.csv");
-		
+			PrintWriter pwCol=new PrintWriter("./data/datasetCol.csv");
+
 			//ClientResponse cr=consumer.query("/api/catalog/v1?only=datasets", HttpLowLevel.JSON_TYPE, SoqlQuery.SELECT_ALL);
 			//URI url=new URI("https://mydata.iadb.org/api/catalog/v1?only=datasets");
 			
@@ -79,7 +82,16 @@ public class CatalogApi {
 
 			//cr.getEntity(Dataset.LIST_TYPE);
 			
-			ClientResponse cr=consumer.query("gb7u-r58j", HttpLowLevel.JSON_TYPE, SoqlQuery.SELECT_ALL);
+			SoqlQuery q= new SoqlQueryBuilder()
+					.addSelectPhrase("u_id")
+					.addSelectPhrase("type")
+					.addSelectPhrase("name")
+					.setWhereClause("type='table' and public='true' and publication_stage='published'")
+					.build();
+			
+					//
+			
+			ClientResponse cr=consumer.query("gb7u-r58j", HttpLowLevel.JSON_TYPE, q);
 			
 			List<DatasetTemp> datasets=cr.getEntity(DatasetTemp.LIST_TYPE);
 			
@@ -97,9 +109,7 @@ public class CatalogApi {
 			         			"Year_Date","Year_Text","Año_FechayHora","Ano",	
 			         			"Year_Date&Time"
 			         	};
-			        	String indicatorName[]= new String[]{"Nombre_Indicador",
-			        			"Indicador_es",
-			        			"Indicador",
+			        	String indicatorName[]= new String[]{"Nombre_Indicador","Indicador_es","Indicador",
 			        			"IdIndicador",
 			        			"TituloIndicador",
 			        			"INDICATOR_ID",
@@ -142,6 +152,7 @@ public class CatalogApi {
 			 	        	 {
 			 	        		 found=true;
 			 	        		//System.out.println(f.name+": "+f.values[id]);
+			 	        		analyseField(pwCol,ds,c,f.getName());
 			 	        		printColumn(pw,ds,f.getName(),f.value(id),c.getDataTypeName());
 			 	        	 }
 			        	 }
@@ -156,6 +167,7 @@ public class CatalogApi {
 			}
 	         
 		pw.close();
+		pwCol.close();
 		}
 		
 		catch (LongRunningQueryException e) {
@@ -171,9 +183,51 @@ public class CatalogApi {
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
 	
+	private void analyseField(PrintWriter pwCol, String ds, Column c, String name) throws Exception {
+		// TODO Auto-generated method stub
+		
+		SoqlQuery q= new SoqlQuery(
+				Collections.singletonList(c.getFieldName()), //Select
+				null, //WHERE
+				Collections.singletonList(c.getFieldName()), //Group by 
+				null, //Having 
+				null, //Order by
+				null, // offset
+				null, 1000);
+		
+		ClientResponse cr=consumer.query(ds, HttpLowLevel.JSON_TYPE,q);
+		List<String> values=cr.getEntity(new GenericType<List<String>>(){});
+		int minSize=Integer.MAX_VALUE;
+		int maxSize=Integer.MIN_VALUE;
+		int count=0;
+		int totalSize=0;
+		boolean next=false;
+		
+		for (String v : values) {
+			
+			if(next)
+			{
+				minSize=v.length()<minSize?v.length():minSize;
+				maxSize=v.length()>maxSize?v.length():maxSize;
+				totalSize+=v.length();
+				count++;
+				next=false;
+			}
+			else if(v.equals(c.getFieldName()))
+			{
+				next=true;
+			}
+		}
+		pwCol.println(ds+","+name+","+c.getName()+","+c.getFieldName()+","+c.getDataTypeName()+","+minSize+","+maxSize+","+count+","+((double)totalSize/(double)count));
+		
+	}
+
 	private void printColumn(PrintWriter pw,String ds, String name, String value,
 			String dataTypeName) {
 		pw.println(ds+","+name+","+value+","+dataTypeName);

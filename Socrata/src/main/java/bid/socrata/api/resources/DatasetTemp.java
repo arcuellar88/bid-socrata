@@ -17,8 +17,8 @@ public class DatasetTemp {
     @JsonCreator
     public DatasetTemp(@JsonProperty("name") String name,
     		@JsonProperty("u_id") String id, 
-    		@JsonProperty("type") String type,
-    		@JsonProperty("routing_approval") String routing_approval
+    		@JsonProperty("type") String type
+    	//	@JsonProperty("routing_approval") String routing_approval
 //    		@JsonProperty("owner") String owner,
 //    		@JsonProperty("creation_date") Date creation_date,
 //    		@JsonProperty("public") String publiC,
