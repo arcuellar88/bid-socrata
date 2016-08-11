@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import bid.socrata.api.resources.DatasetTemp;
@@ -33,10 +34,10 @@ import com.sun.jersey.api.client.GenericType;
 
 public class CatalogApi {
 
-	private final static String URL="url";
-	private final static String USER="user";
-	private final static String PWD="password";
-	private final static String TOKEN="token";
+	public final static String URL="url";
+	public final static String USER="user";
+	public final static String PWD="password";
+	public final static String TOKEN="token";
 	
 	private Soda2Consumer consumer;
 	
@@ -74,6 +75,7 @@ public class CatalogApi {
 
 			PrintWriter pw=new PrintWriter("./data/dataset.csv");
 			PrintWriter pwCol=new PrintWriter("./data/datasetCol.csv");
+			PrintWriter pwMeta=new PrintWriter("./data/metadata.csv");
 
 			//ClientResponse cr=consumer.query("/api/catalog/v1?only=datasets", HttpLowLevel.JSON_TYPE, SoqlQuery.SELECT_ALL);
 			//URI url=new URI("https://mydata.iadb.org/api/catalog/v1?only=datasets");
@@ -87,9 +89,9 @@ public class CatalogApi {
 					.addSelectPhrase("type")
 					.addSelectPhrase("name")
 					.setWhereClause("type='table' and public='true' and publication_stage='published'")
+					//.setLimit(5)
 					.build();
 			
-					//
 			
 			ClientResponse cr=consumer.query("gb7u-r58j", HttpLowLevel.JSON_TYPE, q);
 			
@@ -99,9 +101,17 @@ public class CatalogApi {
 				if(dsID.getType().equals("table"))
 				{
 					SodaDdl importer = new SodaDdl(consumer.getHttpLowLevel());
-					   
 			         String ds=dsID.getId();
-			         Dataset dsi=(Dataset)importer.loadDatasetInfo(ds);
+				        DatasetInfo dsInfo= importer.loadDatasetInfo(ds); 
+				        Metadata md=dsInfo.getMetadata();
+				        
+				        printMetadata(pwMeta,dsInfo,md);
+				      
+				       
+				       
+				        
+			         Dataset dsi=(Dataset)dsInfo;
+			         
 			         List<Column> columns=dsi.getColumns();
 			         	String country[]= new String[]{"Country","Country_es","País","Pais","Pais Nombre EN","Pais Nombre ES","ID_PaisRequisito","PAIS","COUNTRY"};
 			         	String city[]= new String[]{"Ciudad","City","CiudadId"};
@@ -152,7 +162,7 @@ public class CatalogApi {
 			 	        	 {
 			 	        		 found=true;
 			 	        		//System.out.println(f.name+": "+f.values[id]);
-			 	        		analyseField(pwCol,ds,c,f.getName());
+			 	        		//analyseField(pwCol,ds,c,f.getName());
 			 	        		printColumn(pw,ds,f.getName(),f.value(id),c.getDataTypeName());
 			 	        	 }
 			        	 }
@@ -168,6 +178,7 @@ public class CatalogApi {
 	         
 		pw.close();
 		pwCol.close();
+		pwMeta.close();
 		}
 		
 		catch (LongRunningQueryException e) {
@@ -189,6 +200,23 @@ public class CatalogApi {
 		}
 	}
 	
+	private void printMetadata(PrintWriter pwMeta, DatasetInfo dsInfo,
+			Metadata md) {
+	      //Map<String, String> mSummary=m.get("Dataset Summary");		
+
+		Map<String, Map<String, String>> m=md.getCustom_fields();
+		 for( String cat:m.keySet())
+		 {
+			 Map<String, String> mCategory=m.get(cat);
+			 for (String key : mCategory.keySet()) {
+				pwMeta.println("'"+dsInfo.getTableAuthor().getDisplayName()+"','"+dsInfo.getId()+"','"+dsInfo.getName()+"','"+cat+"','"+key+"','"+mCategory.get(key)+"'");
+			}
+		 }
+		
+	}
+
+	
+
 	private void analyseField(PrintWriter pwCol, String ds, Column c, String name) throws Exception {
 		// TODO Auto-generated method stub
 		
